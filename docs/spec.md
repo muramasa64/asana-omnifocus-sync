@@ -7,11 +7,21 @@
 ```toml
 workspace_gid = "1234567890"   # 対象 Asana ワークスペースの GID（必須）
 omnifocus_project = "Asana"    # 取り込み先 OmniFocus プロジェクト名（省略時 "Asana"）
+tls_insecure = false           # true で TLS 証明書検証を無効化（省略時 false）
 ```
 
 認証トークン: 環境変数 `ASANA_TOKEN`（必須）。設定ファイルには書かない。
 
 設定ファイルのパスは `XDG_CONFIG_HOME` を尊重し、未設定時は `~/.config` を用いる。
+
+### TLS / 企業プロキシ
+
+TLS バックエンドは **native-tls（macOS では Security.framework）** を用い、システムキーチェーンの
+ルート証明書を信頼する。これにより Netskope 等の TLS インターセプトプロキシが挿入する社内 CA を
+（キーチェーンに導入済みであれば）**検証したまま**受け入れられる。
+
+キーチェーンに社内 CA が無い等で検証できない場合の回避策として、`tls_insecure = true`（設定ファイル）
+または CLI フラグ `--insecure` で**証明書検証を無効化**できる。検証を切るため信頼できるネットワークでのみ使う。
 
 ## 2. Asana API
 
@@ -132,9 +142,10 @@ asana_gid: <GID>
 ## 5. CLI
 
 ```
-asana-omnifocus-sync [--dry-run] [--config <path>]
+asana-omnifocus-sync [--dry-run] [--config <path>] [--insecure]
 ```
 
 - `--dry-run`: apply を行わず、reconcile 結果（予定操作）を表示する。
 - `--config <path>`: 設定ファイルパスを上書きする。
+- `--insecure`: TLS 証明書検証を無効化する（設定の `tls_insecure` より優先）。
 - 終了時に `created=N updated=N completed=N` のサマリを表示する。

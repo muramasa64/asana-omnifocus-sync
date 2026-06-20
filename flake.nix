@@ -35,6 +35,8 @@
         commonArgs = {
           inherit src;
           strictDeps = true;
+          # 最近の darwin stdenv は Apple SDK（Security 等）を自動提供するため、
+          # native-tls / security-framework のリンクに追加の buildInputs は不要。
           buildInputs = pkgs.lib.optionals pkgs.stdenv.isDarwin [
             pkgs.libiconv
           ];

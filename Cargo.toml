@@ -12,7 +12,9 @@ anyhow = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "0.8"
-ureq = { version = "2", features = ["json", "tls"] }
+# native-tls を使い macOS キーチェーンのルート証明書を信頼する（社内プロキシ CA 対応）。
+ureq = { version = "2", default-features = false, features = ["json", "gzip", "native-tls"] }
+native-tls = "0.2"
 
 [profile.release]
 strip = true

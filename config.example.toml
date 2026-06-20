@@ -1,0 +1,6 @@
+# ~/.config/asana-omnifocus-sync/config.toml に置く
+workspace_gid = "1234567890"   # 対象 Asana ワークスペースの GID（必須）
+omnifocus_project = "Asana"    # 取り込み先 OmniFocus プロジェクト名（省略時 "Asana"）
+
+# 認証トークンは環境変数 ASANA_TOKEN で渡す（このファイルには書かない）:
+#   export ASANA_TOKEN="0/xxxxxxxx..."
