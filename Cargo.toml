@@ -1,0 +1,18 @@
+[package]
+name = "asana-omnifocus-sync"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "asana-omnifocus-sync"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+ureq = { version = "2", features = ["json", "tls"] }
+
+[profile.release]
+strip = true
