@@ -33,7 +33,7 @@ function run() {
   let projects = doc.flattenedProjects.whose({ name: input.project })();
   let project;
   if (projects.length === 0) {
-    project = of.Project({ name: input.project });
+    project = of.Project({ name: input.project, singletonActionHolder: true });
     doc.projects.push(project);
   } else {
     project = projects[0];

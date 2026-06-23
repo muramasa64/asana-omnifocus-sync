@@ -116,7 +116,7 @@ OmniFocus に存在するが取得結果に無い `asana_gid` を「完了扱い
 ```
 
 - 処理:
-  - 取り込み先プロジェクトが無ければ作成する。
+  - 取り込み先プロジェクトが無ければ作成する。作成時の種類は「単独アクション（single action list）」とする（`singletonActionHolder = true`）。
   - `create`: プロジェクト配下にタスクを作成し、name / due / note を設定し、`tags` を付与する。
   - `update`: `of_id` のタスクの name / due / note を設定し、管理対象タグを `tags` に置き換える。
   - `complete`: `of_id` のタスクを `markComplete()` する。
