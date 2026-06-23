@@ -58,7 +58,7 @@ fn run() -> Result<()> {
     let asana_tasks = client.my_incomplete_tasks()?;
 
     // 2. OmniFocus の現状取得
-    let of_tasks = omnifocus::dump(&cfg.omnifocus_project)?;
+    let of_tasks = omnifocus::dump(&cfg.omnifocus_project, &cfg.omnifocus_tag_root)?;
 
     // 3. 差分計算
     let ops = sync::reconcile(&asana_tasks, &of_tasks);
@@ -96,7 +96,7 @@ fn run() -> Result<()> {
     }
 
     // 4. OmniFocus に適用
-    let summary = omnifocus::apply(&cfg.omnifocus_project, &ops)?;
+    let summary = omnifocus::apply(&cfg.omnifocus_project, &cfg.omnifocus_tag_root, &ops)?;
     println!(
         "完了: created={} updated={} completed={}",
         summary.created, summary.updated, summary.completed

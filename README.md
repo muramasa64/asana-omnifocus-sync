@@ -13,12 +13,20 @@ macOS only. It uses JXA (JavaScript for Automation) to talk to OmniFocus.
 Each run reconciles the current state of Asana into OmniFocus:
 
 - Tasks in Asana but not in OmniFocus are created.
-- Tasks in both, where the name, due date, or note differs, are updated.
+- Tasks in both, where the name, due date, note, or project tags differ, are updated.
 - Tasks in OmniFocus (incomplete) but absent from the Asana result are completed.
 
 The tool fetches only tasks that are currently assigned to you and incomplete. Completed tasks and tasks reassigned away from you never appear in the result, so the tool treats any such task still present in OmniFocus as completed.
 
 Tasks you complete in OmniFocus first are excluded from matching and are never reopened.
+
+## Asana projects become OmniFocus tags
+
+An Asana task can belong to several projects at once, while an OmniFocus task lives in a single project. To bridge this, the tool represents each Asana project as an OmniFocus tag rather than a project. Tasks stay in the one destination project, and their Asana projects are expressed as tags.
+
+Tags are nested under a root tag (`Asana` by default) with the project name. A task that belongs to multiple Asana projects receives multiple tags. A task that belongs to no project receives the root tag only.
+
+Only tags under the root tag are managed by the sync. When a task's project membership changes in Asana, its managed tags are replaced accordingly, while any other tags you added by hand (contexts, locations) are preserved. Tags that fall out of use are left in place rather than deleted, and an Asana project rename is treated as a new tag.
 
 ## Requirements
 
@@ -47,6 +55,7 @@ Place a config file at `~/.config/asana-omnifocus-sync/config.toml` (`XDG_CONFIG
 ```toml
 workspace_gid = "1234567890"   # GID of the target Asana workspace (required)
 omnifocus_project = "Asana"    # destination OmniFocus project name (defaults to "Asana")
+omnifocus_tag_root = "Asana"   # root tag for project tags (defaults to "Asana")
 tls_insecure = false           # set true to disable TLS certificate verification (defaults to false)
 ```
 

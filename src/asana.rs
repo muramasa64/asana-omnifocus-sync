@@ -6,7 +6,7 @@ use serde::Deserialize;
 use crate::model::{normalize_due, AsanaTask};
 
 const API_BASE: &str = "https://app.asana.com/api/1.0";
-const OPT_FIELDS: &str = "name,due_on,due_at,notes,permalink_url,completed,assignee.gid";
+const OPT_FIELDS: &str = "name,due_on,due_at,notes,permalink_url,completed,assignee.gid,memberships.project.name,memberships.project.gid";
 
 #[derive(Debug, Deserialize)]
 struct TasksResponse {
@@ -28,6 +28,18 @@ struct RawTask {
     due_at: Option<String>,
     notes: Option<String>,
     permalink_url: Option<String>,
+    #[serde(default)]
+    memberships: Vec<Membership>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Membership {
+    project: Option<Project>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Project {
+    name: Option<String>,
 }
 
 pub struct AsanaClient<'a> {
@@ -83,12 +95,21 @@ impl<'a> AsanaClient<'a> {
                 .context("Asana レスポンスの JSON 解析に失敗")?;
 
             for raw in body.data {
+                let mut projects = Vec::new();
+                for m in raw.memberships {
+                    if let Some(name) = m.project.and_then(|p| p.name) {
+                        if !name.is_empty() && !projects.contains(&name) {
+                            projects.push(name);
+                        }
+                    }
+                }
                 tasks.push(AsanaTask {
                     gid: raw.gid,
                     name: raw.name.unwrap_or_default(),
                     due: normalize_due(raw.due_on.as_deref(), raw.due_at.as_deref()),
                     notes: raw.notes.unwrap_or_default(),
                     permalink_url: raw.permalink_url.unwrap_or_default(),
+                    projects,
                 });
             }
 

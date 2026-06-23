@@ -1,13 +1,13 @@
 //! Asana と OmniFocus の突き合わせ・差分計算（純粋関数）。
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::model::{AsanaTask, OfTask, Operation};
 
 /// Asana タスク集合と OmniFocus タスク集合から、適用すべき操作を計算する。
 ///
 /// - Asana にあり OF（未完了）に無い → Create
-/// - 双方に存在し name/due/note に差分あり → Update
+/// - 双方に存在し name/due/note/tags に差分あり → Update
 /// - OF（未完了）にあり Asana に無い → Complete
 ///
 /// 既に OF 側が完了済みのタスクは突き合わせ対象から除外する（再オープンしない）。
@@ -32,14 +32,20 @@ pub fn reconcile(asana: &[AsanaTask], of: &[OfTask]) -> Vec<Operation> {
                 name: a.name.clone(),
                 due: a.due.clone(),
                 note,
+                tags: a.projects.clone(),
             }),
             Some(o) => {
-                if o.name != a.name || o.due != a.due || o.note != note {
+                if o.name != a.name
+                    || o.due != a.due
+                    || o.note != note
+                    || tags_differ(&a.projects, &o.tags)
+                {
                     ops.push(Operation::Update {
                         of_id: o.of_id.clone(),
                         name: a.name.clone(),
                         due: a.due.clone(),
                         note,
+                        tags: a.projects.clone(),
                     });
                 }
             }
@@ -58,6 +64,13 @@ pub fn reconcile(asana: &[AsanaTask], of: &[OfTask]) -> Vec<Operation> {
     ops
 }
 
+/// 所属プロジェクト名と管理対象タグを、順序を無視した集合として比較する。
+fn tags_differ(projects: &[String], tags: &[String]) -> bool {
+    let want: HashSet<&str> = projects.iter().map(String::as_str).collect();
+    let have: HashSet<&str> = tags.iter().map(String::as_str).collect();
+    want != have
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -69,6 +82,7 @@ mod tests {
             due: due.map(str::to_string),
             notes: String::new(),
             permalink_url: format!("https://app.asana.com/0/0/{gid}"),
+            projects: Vec::new(),
         }
     }
 
@@ -80,6 +94,7 @@ mod tests {
             due: a.due.clone(),
             completed,
             note: a.note(),
+            tags: a.projects.clone(),
         }
     }
 
@@ -130,5 +145,51 @@ mod tests {
         let of = of_from(&a, "of-1", true);
         let ops = reconcile(&[a], &[of]);
         assert!(matches!(ops.as_slice(), [Operation::Create { .. }]));
+    }
+
+    #[test]
+    fn create_carries_project_tags() {
+        let mut a = asana("1", "新規", None);
+        a.projects = vec!["プロジェクト A".to_string(), "プロジェクト B".to_string()];
+        let ops = reconcile(std::slice::from_ref(&a), &[]);
+        assert!(matches!(
+            ops.as_slice(),
+            [Operation::Create { tags, .. }] if tags == &a.projects
+        ));
+    }
+
+    #[test]
+    fn updates_when_tags_differ() {
+        let mut a = asana("1", "同じ", None);
+        a.projects = vec!["プロジェクト A".to_string()];
+        let mut of = of_from(&a, "of-1", false);
+        of.tags = vec!["プロジェクト B".to_string()];
+        let ops = reconcile(&[a], &[of]);
+        assert!(matches!(
+            ops.as_slice(),
+            [Operation::Update { tags, .. }] if tags == &["プロジェクト A".to_string()]
+        ));
+    }
+
+    #[test]
+    fn no_op_when_tags_match_ignoring_order() {
+        let mut a = asana("1", "同じ", None);
+        a.projects = vec!["A".to_string(), "B".to_string()];
+        let mut of = of_from(&a, "of-1", false);
+        of.tags = vec!["B".to_string(), "A".to_string()];
+        assert!(reconcile(&[a], &[of]).is_empty());
+    }
+
+    #[test]
+    fn updates_when_project_membership_removed() {
+        // Asana で全プロジェクトから外れたら、管理対象タグを空へ更新する。
+        let a = asana("1", "解除", None);
+        let mut of = of_from(&a, "of-1", false);
+        of.tags = vec!["プロジェクト A".to_string()];
+        let ops = reconcile(&[a], &[of]);
+        assert!(matches!(
+            ops.as_slice(),
+            [Operation::Update { tags, .. }] if tags.is_empty()
+        ));
     }
 }

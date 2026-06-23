@@ -1,5 +1,5 @@
 // JXA: stdin の操作 JSON を OmniFocus に適用する。
-// 入力: { project, operations: [ {kind:"create"|"update"|"complete", ...} ] }
+// 入力: { project, tag_root, operations: [ {kind:"create"|"update"|"complete", ...} ] }
 // 出力: { created, updated, completed }
 
 function readStdin() {
@@ -39,6 +39,48 @@ function run() {
     project = projects[0];
   }
 
+  // ルートタグを取得（無ければトップレベルに作成）。
+  let roots = doc.flattenedTags.whose({ name: input.tag_root })();
+  let rootTag;
+  if (roots.length === 0) {
+    rootTag = of.Tag({ name: input.tag_root });
+    doc.tags.push(rootTag);
+  } else {
+    rootTag = roots[0];
+  }
+
+  // ルートタグ配下の子タグを名前で取得（無ければ作成）。
+  function childTag(name) {
+    const existing = rootTag.tags.whose({ name: name })();
+    if (existing.length > 0) return existing[0];
+    const t = of.Tag({ name: name });
+    rootTag.tags.push(t);
+    return t;
+  }
+
+  // タスクの管理対象タグ（ルートタグ配下）を names に置き換える。
+  // ルートタグ配下にないタグ（利用者の手動タグ）は触らない。
+  function setTags(task, names) {
+    const childIds = {};
+    const children = rootTag.tags();
+    for (let i = 0; i < children.length; i++) {
+      childIds[children[i].id()] = true;
+    }
+    const assigned = task.tags();
+    for (let i = 0; i < assigned.length; i++) {
+      if (childIds[assigned[i].id()]) {
+        of.remove(assigned[i], { from: task.tags });
+      }
+    }
+    if (names.length === 0) {
+      of.add(rootTag, { to: task.tags });
+    } else {
+      for (let i = 0; i < names.length; i++) {
+        of.add(childTag(names[i]), { to: task.tags });
+      }
+    }
+  }
+
   // of_id からタスクを引くための索引。
   function taskById(id) {
     const found = doc.flattenedTasks.whose({ id: id })();
@@ -54,6 +96,7 @@ function run() {
       project.tasks.push(task);
       const due = parseDue(op.due);
       if (due) task.dueDate = due;
+      setTags(task, op.tags || []);
       created++;
     } else if (op.kind === "update") {
       const task = taskById(op.of_id);
@@ -61,6 +104,7 @@ function run() {
         task.name = op.name;
         task.note = op.note;
         task.dueDate = parseDue(op.due); // null で due 解除
+        setTags(task, op.tags || []);
         updated++;
       }
     } else if (op.kind === "complete") {

@@ -22,13 +22,17 @@ pub struct ApplySummary {
 }
 
 /// 取り込み先プロジェクト配下の、`asana_gid:` を持つ OmniFocus タスクを取得する。
-pub fn dump(project: &str) -> Result<Vec<OfTask>> {
+///
+/// `tag_root` はプロジェクトタグのルートタグ名。各タスクの管理対象タグ
+/// （ルートタグ配下の子タグ名）を抽出するために渡す。
+pub fn dump(project: &str, tag_root: &str) -> Result<Vec<OfTask>> {
     let script = write_temp_script("dump", DUMP_JS)?;
     let output = Command::new(OSASCRIPT)
         .arg("-l")
         .arg("JavaScript")
         .arg(&script)
         .arg(project)
+        .arg(tag_root)
         .output()
         .context("osascript の実行に失敗（dump）")?;
 
@@ -46,9 +50,10 @@ pub fn dump(project: &str) -> Result<Vec<OfTask>> {
 }
 
 /// 操作リストを OmniFocus に適用する。
-pub fn apply(project: &str, operations: &[Operation]) -> Result<ApplySummary> {
+pub fn apply(project: &str, tag_root: &str, operations: &[Operation]) -> Result<ApplySummary> {
     let payload = serde_json::json!({
         "project": project,
+        "tag_root": tag_root,
         "operations": operations,
     });
     let payload = serde_json::to_string(&payload)?;

@@ -52,6 +52,10 @@ Asana REST (asana.rs) → reconcile (sync.rs) → apply (omnifocus.rs) → OmniF
 
 対応付けの正本は OmniFocus タスクの note 末尾に書かれる `asana_gid:` 行（`build_note` で構築、dump 時に正規表現 `/^asana_gid:\s*(\S+)/m` で抽出）。DB やローカル状態ファイルは持たない。
 
+### Asana プロジェクトは OmniFocus のタグで表現する
+
+Asana タスクは複数プロジェクトに所属しうる（タスク↔プロジェクトが多対多）。OmniFocus のプロジェクトは 1 対 1 なので、所属プロジェクトはプロジェクトではなくタグで表す。タスク配置は単一の取り込み先プロジェクトのまま。タグはルートタグ（`omnifocus_tag_root`、既定 "Asana"）配下にプロジェクト名でネストする。`AsanaTask.projects`（所属プロジェクト名）と `OfTask.tags`（ルートタグ配下の管理対象タグ名）を集合比較し、差分があれば update する。同期が触れるのはルートタグ配下のタグのみで、利用者の手動タグは保持する。リネームは別タグ扱い、空タグの削除はしない。
+
 ### 完了判定のしくみ
 
 Asana 取得は `assignee=me` + `completed_since=now` なので「現在自分担当の未完了タスク」のみ返る。よって OmniFocus（未完了）に存在するが Asana 取得結果に無い `asana_gid` は「完了/担当解除」とみなし `complete` する。OmniFocus 側で既に完了済みのタスクは突き合わせ対象から除外し、再オープンしない。

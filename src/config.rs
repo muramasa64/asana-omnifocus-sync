@@ -6,12 +6,15 @@ use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;
 
 const DEFAULT_PROJECT: &str = "Asana";
+const DEFAULT_TAG_ROOT: &str = "Asana";
 
 #[derive(Debug, Deserialize)]
 struct ConfigFile {
     workspace_gid: String,
     #[serde(default)]
     omnifocus_project: Option<String>,
+    #[serde(default)]
+    omnifocus_tag_root: Option<String>,
     #[serde(default)]
     tls_insecure: bool,
 }
@@ -22,6 +25,7 @@ pub struct Config {
     pub token: String,
     pub workspace_gid: String,
     pub omnifocus_project: String,
+    pub omnifocus_tag_root: String,
     pub tls_insecure: bool,
 }
 
@@ -50,6 +54,9 @@ impl Config {
             omnifocus_project: file
                 .omnifocus_project
                 .unwrap_or_else(|| DEFAULT_PROJECT.to_string()),
+            omnifocus_tag_root: file
+                .omnifocus_tag_root
+                .unwrap_or_else(|| DEFAULT_TAG_ROOT.to_string()),
             tls_insecure: file.tls_insecure,
         })
     }

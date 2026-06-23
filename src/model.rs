@@ -11,6 +11,8 @@ pub struct AsanaTask {
     pub due: Option<String>,
     pub notes: String,
     pub permalink_url: String,
+    /// 所属プロジェクト名（OmniFocus のタグに対応）。どこにも属さなければ空。
+    pub projects: Vec<String>,
 }
 
 /// OmniFocus 側の現状タスク（dump.js の出力に対応）。
@@ -22,6 +24,9 @@ pub struct OfTask {
     pub due: Option<String>,
     pub completed: bool,
     pub note: String,
+    /// 管理対象タグ（ルートタグ配下の子タグ名）。
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 /// reconcile が生成する、OmniFocus へ適用する操作。
@@ -33,12 +38,14 @@ pub enum Operation {
         name: String,
         due: Option<String>,
         note: String,
+        tags: Vec<String>,
     },
     Update {
         of_id: String,
         name: String,
         due: Option<String>,
         note: String,
+        tags: Vec<String>,
     },
     Complete {
         of_id: String,
