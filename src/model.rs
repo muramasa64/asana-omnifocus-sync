@@ -52,6 +52,22 @@ pub enum Operation {
     },
 }
 
+/// reconcile が生成する、Asana へ適用する操作（完了の書き戻し）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AsanaOp {
+    /// 当該 gid の Asana タスクを完了にする。`name` は表示用。
+    Complete { gid: String, name: String },
+}
+
+/// reconcile の出力。適用先ごとに操作を分ける。
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Plan {
+    /// OmniFocus へ適用する操作。
+    pub of_ops: Vec<Operation>,
+    /// Asana へ適用する操作（完了の書き戻し）。
+    pub asana_ops: Vec<AsanaOp>,
+}
+
 /// Asana の due_at（日時）/ due_on（日付）から OmniFocus 用の due を決める。
 ///
 /// OmniFocus の due は日時だが、Asana の主用途は日付（due_on）であり、

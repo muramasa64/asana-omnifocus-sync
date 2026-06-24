@@ -51,12 +51,25 @@ struct OfTask {
     tags: Vec<String>,          // 管理対象タグ（ルートタグ配下の子タグ名）
 }
 
-enum Operation {
+enum Operation {           // OmniFocus へ適用する操作
     Create { asana_gid: String, name: String, due: Option<String>, note: String, tags: Vec<String> },
     Update { of_id: String, name: String, due: Option<String>, note: String, tags: Vec<String> },
     Complete { of_id: String },
 }
+
+enum AsanaOp {             // Asana へ適用する操作（完了の書き戻し）
+    Complete { gid: String, name: String },   // name は表示用
+}
+
+struct Plan {              // reconcile の出力。適用先ごとに分ける
+    of_ops: Vec<Operation>,
+    asana_ops: Vec<AsanaOp>,
+}
 ```
+
+`Operation`（OmniFocus 行き）と `AsanaOp`（Asana 行き）を別の型に分けるのは、適用経路が異なるためである。
+`Operation` は apply.js へ JSON で渡して `osascript` で適用し、`AsanaOp` は `asana.rs` の REST クライアントで適用する。
+両者を一つの列挙にまとめると、apply.js が解さない操作が混ざりうる。
 
 `build_note(notes, url, gid)` と `normalize_due(due_on, due_at)` を model.rs に置き、
 asana.rs と sync.rs の双方から使う（マッピングの一貫性確保）。
@@ -94,11 +107,35 @@ Asana の所属プロジェクト名リストと OmniFocus の管理対象タグ
 
 JXA でのネストタグ作成（ルートタグの子として子タグを追加する手順）は実装着手時に確認する。
 
+## 完了の書き戻し（OmniFocus → Asana）
+
+作成・更新・タグ付けは Asana を正本とする一方向同期だが、完了だけは双方向に伝える。
+Asana で完了したものは OmniFocus を完了し、OmniFocus で完了したものは Asana を完了する。
+
+書き戻しの判定は `reconcile` の中で行う。
+`OfTask` は完了フラグを保持しており（dump.js が `completed` を出力する）、`reconcile` は OmniFocus 側を完了・未完了に分けて突き合わせる。
+ある `asana_gid` が「OmniFocus で完了済み」かつ「Asana 取得結果（未完了）に残っている」とき、`AsanaOp::Complete` を出す。
+
+このケースで OmniFocus への `Create` を抑止するのが要点である。
+従来の一方向同期では、完了済みの `OfTask` を未完了の突き合わせ対象から外していたため、同じ `gid` が Asana に未完了で残っていると `Create` が出て OmniFocus にタスクが再作成された。
+書き戻しでは、この再作成を `AsanaOp::Complete` に置き換える。
+Asana を完了にすれば、次回以降の取得結果に当該 `gid` は現れず、再作成も書き戻しも起きない（収束する）。
+
+OmniFocus 側で完了済みかつ Asana 取得結果にも現れない `gid`（双方が既に完了）には何もしない。
+Asana を毎回完了し直さないための冪等性の担保である。
+
+書き戻し先が `osascript` ではなく Asana REST なので、`main` は `Plan.of_ops` を `omnifocus::apply` に、`Plan.asana_ops` を `AsanaClient::complete_task` に渡す。
+`--dry-run` ではどちらの適用も行わない。
+
+なお完了の取得には窓がある。
+OmniFocus 側で完了タスクが「クリーンアップ」でアーカイブされると dump に現れなくなり、書き戻せない。
+これは最善努力（best-effort）の挙動とする。
+
 ## reconcile の純粋性
 
-`reconcile` は I/O を持たず、入力スライスから `Vec<Operation>` を返すだけにする。
-これにより新規/更新/完了の 3 ケースを `cargo test` で副作用なく検証できる。
-OmniFocus 側で完了済みの `OfTask` は呼び出し前に除外する（main 側 or reconcile 冒頭でフィルタ）。
+`reconcile` は I/O を持たず、入力スライスから `Plan`（`of_ops` と `asana_ops`）を返すだけにする。
+これにより作成/更新/完了/書き戻しの各ケースを `cargo test` で副作用なく検証できる。
+完了済みの `OfTask` も入力に含めて渡す。書き戻し判定に完了フラグが要るためで、`reconcile` 内で完了・未完了に振り分ける。
 
 ## エラーハンドリング
 

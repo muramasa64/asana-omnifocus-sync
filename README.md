@@ -2,7 +2,7 @@
 
 English | [日本語](README_ja.md)
 
-A CLI that performs a one-way sync of your incomplete, self-assigned Asana tasks into a designated OmniFocus project.
+A CLI that syncs your incomplete, self-assigned Asana tasks into a designated OmniFocus project. Creation, updates, and tagging flow one way (Asana → OmniFocus) with Asana as the source of truth; only completion is bidirectional (completing a task in OmniFocus completes it in Asana too).
 
 Each OmniFocus task carries the GID of its source Asana task in its note, and that GID is the source of truth for matching. The tool keeps no database or state file of its own, so running it repeatedly is idempotent.
 
@@ -15,10 +15,11 @@ Each run reconciles the current state of Asana into OmniFocus:
 - Tasks in Asana but not in OmniFocus are created.
 - Tasks in both, where the name, due date, note, or project tags differ, are updated.
 - Tasks in OmniFocus (incomplete) but absent from the Asana result are completed.
+- Tasks you completed in OmniFocus that are still incomplete in Asana are completed in Asana (write-back).
 
 The tool fetches only tasks that are currently assigned to you and incomplete. Completed tasks and tasks reassigned away from you never appear in the result, so the tool treats any such task still present in OmniFocus as completed.
 
-Tasks you complete in OmniFocus first are excluded from matching and are never reopened.
+Completion is the one state that flows back to Asana. When you complete a task in OmniFocus while it is still incomplete in Asana, the tool marks the Asana task complete and skips re-creating it in OmniFocus. Once both sides are complete, nothing happens (idempotent). Only completion is written back; OmniFocus states like dropped or on-hold are not. Write-back needs a token with write access, and completing an Asana task may affect its followers and automations. `--dry-run` writes nothing back.
 
 ## Asana projects become OmniFocus tags
 
@@ -69,7 +70,7 @@ You can find the workspace GID in the Asana URL (`https://app.asana.com/0/<gid>/
 
 ## Usage
 
-First check the planned operations with `--dry-run`. This mode does not modify OmniFocus.
+First check the planned operations with `--dry-run`. This mode modifies neither OmniFocus nor Asana.
 
 ```
 asana-omnifocus-sync --dry-run
@@ -81,7 +82,7 @@ When it looks right, run it without the flag to apply the changes.
 asana-omnifocus-sync
 ```
 
-On exit it prints a summary in the form `created=N updated=N completed=N`.
+On exit it prints a summary in the form `created=N updated=N completed=N asana_completed=N`, where `asana_completed` counts the completions written back to Asana.
 
 ### Options
 

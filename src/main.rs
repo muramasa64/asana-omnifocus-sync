@@ -7,11 +7,11 @@ mod sync;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use crate::asana::AsanaClient;
 use crate::config::Config;
-use crate::model::Operation;
+use crate::model::{AsanaOp, Operation};
 
 struct Args {
     dry_run: bool,
@@ -61,44 +61,63 @@ fn run() -> Result<()> {
     let of_tasks = omnifocus::dump(&cfg.omnifocus_project, &cfg.omnifocus_tag_root)?;
 
     // 3. 差分計算
-    let ops = sync::reconcile(&asana_tasks, &of_tasks);
+    let plan = sync::reconcile(&asana_tasks, &of_tasks);
 
     let (mut creates, mut updates, mut completes) = (0u32, 0u32, 0u32);
-    for op in &ops {
+    for op in &plan.of_ops {
         match op {
             Operation::Create { .. } => creates += 1,
             Operation::Update { .. } => updates += 1,
             Operation::Complete { .. } => completes += 1,
         }
     }
+    let writebacks = plan.asana_ops.len();
 
     println!(
-        "Asana: {} 件 / OmniFocus: {} 件 / 予定操作: create={creates} update={updates} complete={completes}",
+        "Asana: {} 件 / OmniFocus: {} 件 / 予定操作: create={creates} update={updates} complete={completes} asana_complete={writebacks}",
         asana_tasks.len(),
         of_tasks.len(),
     );
 
     if args.dry_run {
-        for op in &ops {
+        for op in &plan.of_ops {
             match op {
                 Operation::Create { name, .. } => println!("  [create] {name}"),
                 Operation::Update { name, .. } => println!("  [update] {name}"),
                 Operation::Complete { of_id } => println!("  [complete] of_id={of_id}"),
             }
         }
-        println!("(dry-run: OmniFocus は変更していません)");
+        for op in &plan.asana_ops {
+            let AsanaOp::Complete { gid, name } = op;
+            println!("  [asana complete] {name} (gid={gid})");
+        }
+        println!("(dry-run: OmniFocus / Asana ともに変更していません)");
         return Ok(());
     }
 
-    if ops.is_empty() {
+    if plan.of_ops.is_empty() && plan.asana_ops.is_empty() {
         println!("変更はありません。");
         return Ok(());
     }
 
     // 4. OmniFocus に適用
-    let summary = omnifocus::apply(&cfg.omnifocus_project, &cfg.omnifocus_tag_root, &ops)?;
+    let summary = if plan.of_ops.is_empty() {
+        Default::default()
+    } else {
+        omnifocus::apply(&cfg.omnifocus_project, &cfg.omnifocus_tag_root, &plan.of_ops)?
+    };
+
+    // 5. Asana へ完了を書き戻す
+    let mut asana_completed = 0u32;
+    for AsanaOp::Complete { gid, name } in &plan.asana_ops {
+        client
+            .complete_task(gid)
+            .with_context(|| format!("Asana タスクの完了に失敗: {name} (gid={gid})"))?;
+        asana_completed += 1;
+    }
+
     println!(
-        "完了: created={} updated={} completed={}",
+        "完了: created={} updated={} completed={} asana_completed={asana_completed}",
         summary.created, summary.updated, summary.completed
     );
 

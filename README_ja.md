@@ -2,7 +2,9 @@
 
 [English](README.md) | 日本語
 
-Asana で自分に割り当てられた未完了タスクを、OmniFocus の指定プロジェクトへ一方向同期する CLI です。
+Asana で自分に割り当てられた未完了タスクを、OmniFocus の指定プロジェクトへ同期する CLI です。
+作成・更新・タグ付けは Asana を正本とする一方向（Asana → OmniFocus）です。
+完了だけは双方向で、OmniFocus で完了したタスクは Asana 側も完了にします。
 
 OmniFocus のタスクに同期元の Asana タスク GID を埋め込み、それを正本として突き合わせます。
 ツール自身はデータベースや状態ファイルを持たないため、何度実行しても結果は同じになります。
@@ -17,12 +19,22 @@ OmniFocus との連携に JXA（JavaScript for Automation）を使います。
 - Asana にあり OmniFocus に無いタスクを作成する
 - 双方にあり、名前・期日・メモ・プロジェクトタグのいずれかが異なるタスクを更新する
 - OmniFocus（未完了）にあるが Asana の取得結果に無いタスクを完了にする
+- OmniFocus で完了済みかつ Asana では未完了のタスクを、Asana 側で完了にする（書き戻し）
 
 Asana からは「現在自分に割り当てられた未完了タスク」だけを取得します。
 完了したタスクや担当を外れたタスクは取得結果に現れません。
 そのため OmniFocus 側に残っているそれらのタスクを、ツールが完了として扱います。
 
-OmniFocus 側で先に完了させたタスクは突き合わせの対象から外し、再び開くことはありません。
+OmniFocus 側で先に完了させたタスクを、Asana 側でも完了にして再び開くことはありません。
+
+## 完了の書き戻し
+
+Asana へ書き戻すのは完了だけです。
+OmniFocus で完了し、Asana ではまだ未完了のタスクがあると、その Asana タスクを完了にし、OmniFocus への再作成は行いません。
+双方が完了済みになれば何もしません（冪等）。
+OmniFocus の破棄や保留などの状態は書き戻しません。
+書き戻しには書き込み権限を持つトークンが必要で、Asana タスクの完了はそのフォロワーや関連オートメーションに波及することがあります。
+`--dry-run` のときは書き戻しません。
 
 ## Asana プロジェクトを OmniFocus のタグにする
 
@@ -83,7 +95,7 @@ export ASANA_TOKEN="<your-personal-access-token>"
 ## 使い方
 
 まず `--dry-run` で予定される操作を確認します。
-このモードでは OmniFocus を変更しません。
+このモードでは OmniFocus も Asana も変更しません。
 
 ```
 asana-omnifocus-sync --dry-run
@@ -95,7 +107,8 @@ asana-omnifocus-sync --dry-run
 asana-omnifocus-sync
 ```
 
-終了時に `created=N updated=N completed=N` の形式でサマリを表示します。
+終了時に `created=N updated=N completed=N asana_completed=N` の形式でサマリを表示します。
+`asana_completed` は Asana へ完了を書き戻した件数です。
 
 ### オプション
 

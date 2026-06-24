@@ -14,7 +14,7 @@ const DUMP_JS: &str = include_str!("../scripts/dump.js");
 const APPLY_JS: &str = include_str!("../scripts/apply.js");
 
 /// apply.js が返す適用結果のサマリ。
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct ApplySummary {
     pub created: u32,
     pub updated: u32,

@@ -121,6 +121,17 @@ impl<'a> AsanaClient<'a> {
 
         Ok(tasks)
     }
+
+    /// 当該 gid の Asana タスクを完了状態にする（完了の書き戻し）。
+    pub fn complete_task(&self, gid: &str) -> Result<()> {
+        let body = serde_json::json!({ "data": { "completed": true } });
+        self.agent
+            .put(&format!("{API_BASE}/tasks/{gid}"))
+            .set("Authorization", &format!("Bearer {}", self.token))
+            .send_json(body)
+            .map_err(map_ureq_err)?;
+        Ok(())
+    }
 }
 
 /// ureq のエラーを、HTTP ステータス本文を含む anyhow エラーへ変換する。
