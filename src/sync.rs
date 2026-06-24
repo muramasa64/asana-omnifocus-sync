@@ -77,6 +77,7 @@ pub fn reconcile(asana: &[AsanaTask], of: &[OfTask]) -> Plan {
         if !asana_gids.contains_key(o.asana_gid.as_str()) {
             plan.of_ops.push(Operation::Complete {
                 of_id: o.of_id.clone(),
+                name: o.name.clone(),
             });
         }
     }
@@ -148,7 +149,10 @@ mod tests {
         let of = of_from(&a, "of-1", false);
         let plan = reconcile(&[], &[of]);
         assert!(plan.asana_ops.is_empty());
-        assert!(matches!(plan.of_ops.as_slice(), [Operation::Complete { of_id }] if of_id == "of-1"));
+        assert!(matches!(
+            plan.of_ops.as_slice(),
+            [Operation::Complete { of_id, name }] if of_id == "of-1" && name == "消えた"
+        ));
     }
 
     #[test]

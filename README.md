@@ -87,6 +87,7 @@ On exit it prints a summary in the form `created=N updated=N completed=N asana_c
 ### Options
 
 - `--dry-run`: print the planned operations without applying them
+- `--verbose` (`-v`): also print the names of created, updated, completed, and written-back tasks (count summary only without it)
 - `--config <path>`: override the config file path
 - `--insecure`: disable TLS certificate verification (takes precedence over `tls_insecure`)
 

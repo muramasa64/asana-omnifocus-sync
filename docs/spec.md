@@ -123,10 +123,12 @@ OmniFocus に存在するが取得結果に無い `asana_gid` を「完了扱い
   "operations": [
     { "kind": "create", "asana_gid": "12345", "name": "...", "due": "2026-06-30 or null", "note": "...", "tags": ["プロジェクト A"] },
     { "kind": "update", "of_id": "...", "name": "...", "due": "... or null", "note": "...", "tags": ["プロジェクト A", "プロジェクト B"] },
-    { "kind": "complete", "of_id": "..." }
+    { "kind": "complete", "of_id": "...", "name": "..." }
   ]
 }
 ```
+
+`complete` の `name` は表示（`--verbose`）用で、apply.js は使わない（`of_id` で完了する）。
 
 - 処理:
   - 取り込み先プロジェクトが無ければ作成する。作成時の種類は「単独アクション（single action list）」とする（`singletonActionHolder = true`）。
@@ -183,10 +185,12 @@ asana_gid: <GID>
 ## 5. CLI
 
 ```
-asana-omnifocus-sync [--dry-run] [--config <path>] [--insecure]
+asana-omnifocus-sync [--dry-run] [--verbose] [--config <path>] [--insecure]
 ```
 
 - `--dry-run`: apply も Asana への書き戻しも行わず、reconcile 結果（予定操作）を表示する。
+- `--verbose`: 件数サマリに加え、作成・更新・完了したタスクおよび Asana へ書き戻したタスクの件名を一覧表示する。
+  表示するのは reconcile が決定した予定操作（適用対象）の件名。指定しない場合は件数サマリのみ。
 - `--config <path>`: 設定ファイルパスを上書きする。
 - `--insecure`: TLS 証明書検証を無効化する（設定の `tls_insecure` より優先）。
 - 終了時に `created=N updated=N completed=N asana_completed=N` のサマリを表示する。

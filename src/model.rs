@@ -49,6 +49,8 @@ pub enum Operation {
     },
     Complete {
         of_id: String,
+        /// 表示用のタスク名。apply.js は使わず `of_id` で完了する。
+        name: String,
     },
 }
 

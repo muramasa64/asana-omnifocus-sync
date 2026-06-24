@@ -15,18 +15,21 @@ use crate::model::{AsanaOp, Operation};
 
 struct Args {
     dry_run: bool,
+    verbose: bool,
     config_path: Option<PathBuf>,
     insecure: bool,
 }
 
 fn parse_args() -> Result<Args, String> {
     let mut dry_run = false;
+    let mut verbose = false;
     let mut config_path = None;
     let mut insecure = false;
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
         match arg.as_str() {
             "--dry-run" => dry_run = true,
+            "--verbose" | "-v" => verbose = true,
             "--insecure" => insecure = true,
             "--config" => {
                 let p = it
@@ -35,7 +38,7 @@ fn parse_args() -> Result<Args, String> {
                 config_path = Some(PathBuf::from(p));
             }
             "-h" | "--help" => {
-                println!("usage: asana-omnifocus-sync [--dry-run] [--config <path>] [--insecure]");
+                println!("usage: asana-omnifocus-sync [--dry-run] [--verbose] [--config <path>] [--insecure]");
                 std::process::exit(0);
             }
             other => return Err(format!("不明な引数: {other}")),
@@ -43,9 +46,24 @@ fn parse_args() -> Result<Args, String> {
     }
     Ok(Args {
         dry_run,
+        verbose,
         config_path,
         insecure,
     })
+}
+
+/// 予定操作の件名を一覧表示する（`--dry-run` および `--verbose` 時）。
+fn print_operations(of_ops: &[Operation], asana_ops: &[AsanaOp]) {
+    for op in of_ops {
+        match op {
+            Operation::Create { name, .. } => println!("  [create] {name}"),
+            Operation::Update { name, .. } => println!("  [update] {name}"),
+            Operation::Complete { name, .. } => println!("  [complete] {name}"),
+        }
+    }
+    for AsanaOp::Complete { gid, name } in asana_ops {
+        println!("  [asana complete] {name} (gid={gid})");
+    }
 }
 
 fn run() -> Result<()> {
@@ -80,17 +98,7 @@ fn run() -> Result<()> {
     );
 
     if args.dry_run {
-        for op in &plan.of_ops {
-            match op {
-                Operation::Create { name, .. } => println!("  [create] {name}"),
-                Operation::Update { name, .. } => println!("  [update] {name}"),
-                Operation::Complete { of_id } => println!("  [complete] of_id={of_id}"),
-            }
-        }
-        for op in &plan.asana_ops {
-            let AsanaOp::Complete { gid, name } = op;
-            println!("  [asana complete] {name} (gid={gid})");
-        }
+        print_operations(&plan.of_ops, &plan.asana_ops);
         println!("(dry-run: OmniFocus / Asana ともに変更していません)");
         return Ok(());
     }
@@ -114,6 +122,10 @@ fn run() -> Result<()> {
             .complete_task(gid)
             .with_context(|| format!("Asana タスクの完了に失敗: {name} (gid={gid})"))?;
         asana_completed += 1;
+    }
+
+    if args.verbose {
+        print_operations(&plan.of_ops, &plan.asana_ops);
     }
 
     println!(
