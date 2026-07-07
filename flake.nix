@@ -46,7 +46,14 @@
 
         bin = craneLib.buildPackage (commonArgs // {
           inherit cargoArtifacts;
-        });
+        }) // {
+          meta = {
+            description = "Sync Asana tasks assigned to me into OmniFocus";
+            mainProgram = "asana-omnifocus-sync";
+            # OmniFocus 連携に JXA（osascript）を使うため macOS 専用。
+            platforms = pkgs.lib.platforms.darwin;
+          };
+        };
       in
       {
         packages.default = bin;
